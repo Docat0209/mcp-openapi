@@ -388,3 +388,10 @@ MIT
 ## Keywords
 
 mcp, model-context-protocol, openapi, swagger, claude, ai, llm, api, tools, rest-api, ai-tools, mcp-server
+
+---
+
+## Articles
+
+- [I Made Claude Call Any REST API in 30 Seconds — Zero Code, Just One Command](https://dev.to/docat0209/i-made-claude-call-any-rest-api-in-30-seconds-zero-code-just-one-command-4jfo)
+- [Why LLMs Suck at Calling APIs (And How Flat Schemas Fix It)](https://dev.to/docat0209/why-llms-suck-at-calling-apis-and-how-flat-schemas-fix-it-o0j)
