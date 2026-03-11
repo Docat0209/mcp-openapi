@@ -192,6 +192,7 @@ npx mcp-openapi --spec <url-or-path> [options]
 | `--port <n>` | | `3000` | Port for SSE transport |
 | `--help` | `-h` | | Show help |
 | `--version` | `-v` | | Show version |
+| `--license-key <key>` | | | Pro license key (or `$MCP_OPENAPI_LICENSE_KEY` env) |
 
 ### Auth Options
 
@@ -280,6 +281,54 @@ CLI arguments take precedence over config file values.
 Specs can be loaded from:
 - Remote URLs (`https://...`)
 - Local file paths (`./api.yaml`, `/absolute/path/spec.json`)
+
+---
+
+## Pro Features (v0.2.0+)
+
+`mcp-openapi` includes optional Pro features for teams and power users, gated by a license key.
+
+### Custom Response Transforms
+
+Shape API responses with [JMESPath](https://jmespath.org/) expressions before they reach the LLM — reducing token usage and improving accuracy:
+
+```json
+{
+  "spec": "https://api.github.com/openapi.json",
+  "licenseKey": "$MCP_OPENAPI_LICENSE_KEY",
+  "transforms": {
+    "list_repos": "data[].{name: name, stars: stargazers_count, url: html_url}",
+    "list_*": "data[].{id: id, name: name}"
+  }
+}
+```
+
+### Smart Response Handling
+
+Instead of hard-truncating large responses at 50KB, Pro enables intelligent truncation:
+
+- **Array slicing**: Large arrays show first N items + metadata (`"showing 10 of 847 items"`)
+- **Depth pruning**: Deep nested objects are summarized beyond a configurable depth
+- **Structure preservation**: You always see the shape of the data, never a mid-JSON cut
+
+```json
+{
+  "spec": "./api.json",
+  "licenseKey": "$MCP_OPENAPI_LICENSE_KEY",
+  "response": {
+    "maxLength": 50000,
+    "arraySliceSize": 10,
+    "maxDepth": 4
+  }
+}
+```
+
+### Coming Soon
+
+- **Multi-API Composition** — Load multiple OpenAPI specs into one MCP session
+- **Usage Analytics** — Track tool calls, latency, and error rates
+
+> Interested in Pro? Star the repo and [open an issue](https://github.com/Docat0209/mcp-openapi/issues) to get early access.
 
 ---
 
