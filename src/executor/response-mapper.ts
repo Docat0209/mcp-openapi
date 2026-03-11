@@ -19,6 +19,13 @@ export interface MapResponseOptions {
 
 const MAX_RESPONSE_LENGTH = 50_000;
 
+/** Free tier defaults for smart truncation */
+const FREE_TRUNCATION_DEFAULTS: TransformOptions = {
+	maxLength: MAX_RESPONSE_LENGTH,
+	arraySliceSize: 20,
+	maxDepth: 5,
+};
+
 export async function mapResponse(
 	response: HttpResponse,
 	options?: MapResponseOptions,
@@ -37,7 +44,7 @@ export async function mapResponse(
 		};
 	}
 
-	// JSON response — apply transforms then truncate
+	// JSON response — apply transforms then smart truncate
 	if (response.contentType.includes("application/json")) {
 		try {
 			let parsed = JSON.parse(response.body);
@@ -47,18 +54,13 @@ export async function mapResponse(
 				parsed = await applyJmesPath(parsed, options.jmesPath);
 			}
 
-			// Use smart truncation if configured (Pro), else hard truncate
-			if (options?.smartTruncation) {
-				const text = smartTruncate(parsed, options.smartTruncation);
-				return { content: [{ type: "text", text }] };
-			}
-
-			const formatted = JSON.stringify(parsed, null, 2);
-			return {
-				content: [
-					{ type: "text", text: truncate(formatted, MAX_RESPONSE_LENGTH) },
-				],
+			// Always use smart truncation (free defaults, Pro can override)
+			const truncationOpts = {
+				...FREE_TRUNCATION_DEFAULTS,
+				...options?.smartTruncation,
 			};
+			const text = smartTruncate(parsed, truncationOpts);
+			return { content: [{ type: "text", text }] };
 		} catch {
 			return {
 				content: [

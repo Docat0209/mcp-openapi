@@ -86,4 +86,39 @@ describe("mapResponse", () => {
 		const result = await mapResponse(response);
 		expect(result.content[0].text).toBe("{invalid json");
 	});
+
+	it("should slice large arrays with metadata (free tier smart truncation)", async () => {
+		const items = Array.from({ length: 50 }, (_, i) => ({ id: i, name: `Item ${i}` }));
+		const response: HttpResponse = {
+			status: 200,
+			statusText: "OK",
+			headers: {},
+			body: JSON.stringify(items),
+			contentType: "application/json",
+		};
+
+		const result = await mapResponse(response);
+		const parsed = JSON.parse(result.content[0].text) as Array<{ id?: number; _meta?: string }>;
+		// Free tier default: arraySliceSize=20, so 20 items + 1 meta
+		expect(parsed).toHaveLength(21);
+		expect(parsed[20]._meta).toContain("showing 20 of 50 items");
+	});
+
+	it("should allow Pro tier to override truncation defaults", async () => {
+		const items = Array.from({ length: 50 }, (_, i) => ({ id: i }));
+		const response: HttpResponse = {
+			status: 200,
+			statusText: "OK",
+			headers: {},
+			body: JSON.stringify(items),
+			contentType: "application/json",
+		};
+
+		const result = await mapResponse(response, {
+			smartTruncation: { arraySliceSize: 5 },
+		});
+		const parsed = JSON.parse(result.content[0].text) as Array<{ id?: number; _meta?: string }>;
+		expect(parsed).toHaveLength(6); // 5 items + 1 meta
+		expect(parsed[5]._meta).toContain("showing 5 of 50 items");
+	});
 });
