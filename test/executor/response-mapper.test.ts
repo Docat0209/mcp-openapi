@@ -3,7 +3,7 @@ import { mapResponse } from "../../src/executor/response-mapper.js";
 import type { HttpResponse } from "../../src/executor/http-client.js";
 
 describe("mapResponse", () => {
-	it("should format JSON response with pretty print", () => {
+	it("should format JSON response with pretty print", async () => {
 		const response: HttpResponse = {
 			status: 200,
 			statusText: "OK",
@@ -12,13 +12,13 @@ describe("mapResponse", () => {
 			contentType: "application/json",
 		};
 
-		const result = mapResponse(response);
+		const result = await mapResponse(response);
 		expect(result.isError).toBeUndefined();
 		expect(result.content[0].text).toContain('"id": 1');
 		expect(result.content[0].text).toContain('"name": "Buddy"');
 	});
 
-	it("should return error for 4xx/5xx", () => {
+	it("should return error for 4xx/5xx", async () => {
 		const response: HttpResponse = {
 			status: 404,
 			statusText: "Not Found",
@@ -27,12 +27,12 @@ describe("mapResponse", () => {
 			contentType: "application/json",
 		};
 
-		const result = mapResponse(response);
+		const result = await mapResponse(response);
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain("HTTP Error 404");
 	});
 
-	it("should handle text response", () => {
+	it("should handle text response", async () => {
 		const response: HttpResponse = {
 			status: 200,
 			statusText: "OK",
@@ -41,11 +41,11 @@ describe("mapResponse", () => {
 			contentType: "text/html",
 		};
 
-		const result = mapResponse(response);
+		const result = await mapResponse(response);
 		expect(result.content[0].text).toBe("<html>Hello</html>");
 	});
 
-	it("should handle binary response", () => {
+	it("should handle binary response", async () => {
 		const response: HttpResponse = {
 			status: 200,
 			statusText: "OK",
@@ -54,12 +54,12 @@ describe("mapResponse", () => {
 			contentType: "image/png",
 		};
 
-		const result = mapResponse(response);
+		const result = await mapResponse(response);
 		expect(result.content[0].text).toContain("[Binary response:");
 		expect(result.content[0].text).toContain("image/png");
 	});
 
-	it("should truncate very long responses", () => {
+	it("should truncate very long responses", async () => {
 		const longBody = JSON.stringify({ data: "x".repeat(100_000) });
 		const response: HttpResponse = {
 			status: 200,
@@ -69,12 +69,12 @@ describe("mapResponse", () => {
 			contentType: "application/json",
 		};
 
-		const result = mapResponse(response);
+		const result = await mapResponse(response);
 		expect(result.content[0].text).toContain("truncated");
 		expect(result.content[0].text.length).toBeLessThan(60_000);
 	});
 
-	it("should handle malformed JSON gracefully", () => {
+	it("should handle malformed JSON gracefully", async () => {
 		const response: HttpResponse = {
 			status: 200,
 			statusText: "OK",
@@ -83,7 +83,7 @@ describe("mapResponse", () => {
 			contentType: "application/json",
 		};
 
-		const result = mapResponse(response);
+		const result = await mapResponse(response);
 		expect(result.content[0].text).toBe("{invalid json");
 	});
 });

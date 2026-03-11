@@ -21,6 +21,16 @@ export interface McpOpenApiConfig {
 	transport?: "stdio" | "sse";
 	/** SSE port (default: 3000) */
 	port?: number;
+	/** Pro: License key for paid features */
+	licenseKey?: string;
+	/** Pro: JMESPath transforms per tool name (supports glob patterns) */
+	transforms?: Record<string, string>;
+	/** Pro: Smart response handling options */
+	response?: {
+		maxLength?: number;
+		arraySliceSize?: number;
+		maxDepth?: number;
+	};
 }
 
 export type AuthConfig =

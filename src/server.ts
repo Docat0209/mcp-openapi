@@ -9,14 +9,35 @@ import type { McpOpenApiConfig } from "./config/types.js";
 import { DEFAULT_CONFIG } from "./config/types.js";
 import { buildRequest } from "./executor/request-builder.js";
 import { executeRequest } from "./executor/http-client.js";
-import { mapResponse } from "./executor/response-mapper.js";
+import {
+	mapResponse,
+	type MapResponseOptions,
+} from "./executor/response-mapper.js";
+import { findTransform } from "./executor/response-transform.js";
 import { generateTools } from "./generator/tool-generator.js";
 import type { GeneratedTool } from "./generator/tool-generator.js";
+import {
+	validateLicense,
+	hasFeature,
+	ProFeature,
+} from "./licensing/index.js";
+import type { LicenseInfo } from "./licensing/index.js";
 import { parseSpec } from "./parser/openapi-parser.js";
 import { logger } from "./utils/logger.js";
 
 export async function createServer(config: McpOpenApiConfig) {
 	const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+
+	// Validate license key if provided
+	let license: LicenseInfo | null = null;
+	if (mergedConfig.licenseKey) {
+		license = validateLicense(mergedConfig.licenseKey);
+		if (license) {
+			logger.info(`Pro license active for ${license.email}`);
+		} else {
+			logger.warn("Invalid or expired license key — Pro features disabled");
+		}
+	}
 
 	// Parse the OpenAPI spec
 	const spec = await parseSpec(config.spec);
@@ -94,8 +115,24 @@ export async function createServer(config: McpOpenApiConfig) {
 			maxRetries: mergedConfig.maxRetries!,
 		});
 
+		// Build response mapping options
+		const mapOptions: MapResponseOptions = {};
+
+		// Pro: Custom JMESPath transforms
+		if (mergedConfig.transforms && hasFeature(license, ProFeature.CUSTOM_TRANSFORMS)) {
+			const expr = findTransform(request.params.name, mergedConfig.transforms);
+			if (expr) {
+				mapOptions.jmesPath = expr;
+			}
+		}
+
+		// Pro: Smart response handling
+		if (hasFeature(license, ProFeature.SMART_RESPONSE) && mergedConfig.response) {
+			mapOptions.smartTruncation = mergedConfig.response;
+		}
+
 		// Map to MCP result
-		const result = mapResponse(response);
+		const result = await mapResponse(response, mapOptions);
 		return { ...result };
 	});
 

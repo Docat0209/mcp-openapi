@@ -28,6 +28,8 @@ export function parseCliArgs(argv: string[]): McpOpenApiConfig {
 			"auth-scopes": { type: "string" },
 			// Header options
 			header: { type: "string", multiple: true, short: "H" },
+			// Pro options
+			"license-key": { type: "string" },
 			help: { type: "boolean", short: "h" },
 			version: { type: "boolean", short: "v" },
 		},
@@ -40,7 +42,7 @@ export function parseCliArgs(argv: string[]): McpOpenApiConfig {
 	}
 
 	if (values.version) {
-		console.error("mcp-openapi v0.1.0");
+		console.error("mcp-openapi v0.2.0");
 		process.exit(0);
 	}
 
@@ -56,6 +58,12 @@ export function parseCliArgs(argv: string[]): McpOpenApiConfig {
 	if (values["max-retries"]) config.maxRetries = Number(values["max-retries"]);
 	if (values.transport) config.transport = values.transport as "stdio" | "sse";
 	if (values.port) config.port = Number(values.port);
+
+	// License key (CLI or env var)
+	const licenseKey =
+		(values["license-key"] as string) ||
+		process.env.MCP_OPENAPI_LICENSE_KEY;
+	if (licenseKey) config.licenseKey = licenseKey;
 
 	// Parse auth
 	const authType = values["auth-type"] as string | undefined;
@@ -157,6 +165,9 @@ AUTH OPTIONS:
       --auth-client-secret <secret>
       --auth-token-url <url>
       --auth-scopes <scopes>
+
+PRO OPTIONS:
+      --license-key <key>     Pro license key (or set MCP_OPENAPI_LICENSE_KEY env)
 
 EXAMPLES:
   npx mcp-openapi --spec https://petstore3.swagger.io/api/v3/openapi.json

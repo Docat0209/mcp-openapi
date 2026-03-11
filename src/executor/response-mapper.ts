@@ -1,13 +1,28 @@
 import type { HttpResponse } from "./http-client.js";
+import {
+	applyJmesPath,
+	smartTruncate,
+	type TransformOptions,
+} from "./response-transform.js";
 
 export interface McpToolResult {
 	content: Array<{ type: "text"; text: string }>;
 	isError?: boolean;
 }
 
-const MAX_RESPONSE_LENGTH = 50_000; // ~50KB text limit for LLM context friendliness
+export interface MapResponseOptions {
+	/** JMESPath expression to filter response data */
+	jmesPath?: string;
+	/** Smart truncation options (Pro feature) */
+	smartTruncation?: TransformOptions;
+}
 
-export function mapResponse(response: HttpResponse): McpToolResult {
+const MAX_RESPONSE_LENGTH = 50_000;
+
+export async function mapResponse(
+	response: HttpResponse,
+	options?: MapResponseOptions,
+): Promise<McpToolResult> {
 	// HTTP error
 	if (response.status >= 400) {
 		const body = truncate(response.body, 2000);
@@ -22,18 +37,36 @@ export function mapResponse(response: HttpResponse): McpToolResult {
 		};
 	}
 
-	// JSON response — pretty print
+	// JSON response — apply transforms then truncate
 	if (response.contentType.includes("application/json")) {
 		try {
-			const parsed = JSON.parse(response.body);
+			let parsed = JSON.parse(response.body);
+
+			// Apply JMESPath transform if configured (Pro)
+			if (options?.jmesPath) {
+				parsed = await applyJmesPath(parsed, options.jmesPath);
+			}
+
+			// Use smart truncation if configured (Pro), else hard truncate
+			if (options?.smartTruncation) {
+				const text = smartTruncate(parsed, options.smartTruncation);
+				return { content: [{ type: "text", text }] };
+			}
+
 			const formatted = JSON.stringify(parsed, null, 2);
 			return {
-				content: [{ type: "text", text: truncate(formatted, MAX_RESPONSE_LENGTH) }],
+				content: [
+					{ type: "text", text: truncate(formatted, MAX_RESPONSE_LENGTH) },
+				],
 			};
 		} catch {
-			// Not valid JSON despite content type — return raw
 			return {
-				content: [{ type: "text", text: truncate(response.body, MAX_RESPONSE_LENGTH) }],
+				content: [
+					{
+						type: "text",
+						text: truncate(response.body, MAX_RESPONSE_LENGTH),
+					},
+				],
 			};
 		}
 	}
@@ -44,7 +77,9 @@ export function mapResponse(response: HttpResponse): McpToolResult {
 		response.contentType.includes("xml")
 	) {
 		return {
-			content: [{ type: "text", text: truncate(response.body, MAX_RESPONSE_LENGTH) }],
+			content: [
+				{ type: "text", text: truncate(response.body, MAX_RESPONSE_LENGTH) },
+			],
 		};
 	}
 
