@@ -1,6 +1,7 @@
 {
   "name": "mcp-openapi",
-  "version": "0.2.1",
+  "version": "0.2.2",
+  "mcpName": "io.github.docat0209/openapi",
   "description": "LLM-aware OpenAPI/Swagger to MCP tools converter. Point at any API spec, get instant MCP tools.",
   "type": "module",
   "bin": {
