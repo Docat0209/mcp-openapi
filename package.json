@@ -59,5 +59,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Docat0209/mcp-openapi"
+  },
+  "bugs": {
+    "url": "https://github.com/Docat0209/mcp-openapi/issues"
   }
 }
