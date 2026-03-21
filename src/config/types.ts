@@ -31,6 +31,12 @@ export interface McpOpenApiConfig {
 		arraySliceSize?: number;
 		maxDepth?: number;
 	};
+	/** Suppress doc quality warnings on startup */
+	noDocWarnings?: boolean;
+	/** Server selector: index number, partial URL match, or exact URL */
+	server?: string;
+	/** Enable dynamic tool discovery for large APIs */
+	dynamicDiscovery?: boolean;
 }
 
 export type AuthConfig =

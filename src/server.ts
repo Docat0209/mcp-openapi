@@ -14,8 +14,16 @@ import {
 	type MapResponseOptions,
 } from "./executor/response-mapper.js";
 import { findTransform } from "./executor/response-transform.js";
-import { generateTools } from "./generator/tool-generator.js";
+import { generateToolsWithTags } from "./generator/tool-generator.js";
 import type { GeneratedTool } from "./generator/tool-generator.js";
+import { checkDocQuality } from "./generator/doc-warnings.js";
+import { selectServer } from "./parser/server-selector.js";
+import {
+	buildDiscovery,
+	handleMetaToolCall,
+	shouldEnableDiscovery,
+} from "./generator/dynamic-discovery.js";
+import type { DiscoveryResult } from "./generator/dynamic-discovery.js";
 import {
 	validateLicense,
 	hasFeature,
@@ -42,9 +50,15 @@ export async function createServer(config: McpOpenApiConfig) {
 	// Parse the OpenAPI spec
 	const spec = await parseSpec(config.spec);
 
-	// Generate MCP tools
-	const tools = generateTools(spec, {
-		baseUrl: mergedConfig.baseUrl,
+	// Feature 2: Server filtering
+	let baseUrl = mergedConfig.baseUrl;
+	if (!baseUrl && mergedConfig.server != null) {
+		baseUrl = selectServer(mergedConfig.server, spec);
+	}
+
+	// Generate MCP tools (with tag map for discovery)
+	const { tools, tagMap } = generateToolsWithTags(spec, {
+		baseUrl,
 		prefix: mergedConfig.prefix,
 		include: mergedConfig.include,
 		exclude: mergedConfig.exclude,
@@ -54,14 +68,30 @@ export async function createServer(config: McpOpenApiConfig) {
 		logger.warn("No tools generated from the spec. Check your include/exclude filters.");
 	}
 
+	// Feature 1: Doc quality warnings
+	if (!mergedConfig.noDocWarnings) {
+		checkDocQuality(tools);
+	}
+
+	// Feature 3: Dynamic tool discovery
+	let discovery: DiscoveryResult | null = null;
+	if (shouldEnableDiscovery(mergedConfig.dynamicDiscovery, tools.length)) {
+		discovery = buildDiscovery(tools, tagMap);
+	}
+
 	// Create auth provider
 	const authProvider = createAuthProvider(mergedConfig.auth);
 
-	// Build tool lookup
+	// Build tool lookup (all tools always available for execution)
 	const toolMap = new Map<string, GeneratedTool>();
 	for (const tool of tools) {
 		toolMap.set(tool.name, tool);
 	}
+
+	// Determine which tools to advertise via ListTools
+	const advertisedTools: GeneratedTool[] = discovery
+		? [...discovery.metaTools]
+		: tools;
 
 	// Create MCP server using low-level API
 	const server = new Server(
@@ -78,7 +108,7 @@ export async function createServer(config: McpOpenApiConfig) {
 
 	// Handle list tools
 	server.setRequestHandler(ListToolsRequestSchema, async () => ({
-		tools: tools.map((t) => ({
+		tools: advertisedTools.map((t) => ({
 			name: t.name,
 			description: t.description,
 			inputSchema: {
@@ -91,6 +121,22 @@ export async function createServer(config: McpOpenApiConfig) {
 
 	// Handle call tool
 	server.setRequestHandler(CallToolRequestSchema, async (request): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean; [key: string]: unknown }> => {
+		const args = (request.params.arguments ?? {}) as Record<string, unknown>;
+
+		// Feature 3: Handle meta-tool calls
+		if (discovery) {
+			const metaResult = handleMetaToolCall(
+				request.params.name,
+				args,
+				discovery.toolIndex,
+			);
+			if (metaResult !== null) {
+				return {
+					content: [{ type: "text", text: metaResult }],
+				};
+			}
+		}
+
 		const tool = toolMap.get(request.params.name);
 		if (!tool) {
 			return {
@@ -98,8 +144,6 @@ export async function createServer(config: McpOpenApiConfig) {
 				isError: true,
 			};
 		}
-
-		const args = (request.params.arguments ?? {}) as Record<string, unknown>;
 
 		// Build HTTP request from tool call args
 		let httpRequest = buildRequest(args, tool.endpointRef, mergedConfig.headers);
@@ -139,6 +183,12 @@ export async function createServer(config: McpOpenApiConfig) {
 	logger.info(
 		`Registered ${tools.length} tools from ${spec.info.title} v${spec.info.version}`,
 	);
+
+	if (discovery) {
+		logger.info(
+			`Dynamic discovery: 3 meta-tools registered, ${tools.length} tools searchable`,
+		);
+	}
 
 	return { server, tools, spec };
 }

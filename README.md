@@ -193,6 +193,9 @@ npx mcp-openapi --spec <url-or-path> [options]
 | `--help` | `-h` | | Show help |
 | `--version` | `-v` | | Show version |
 | `--license-key <key>` | | | Pro license key (or `$MCP_OPENAPI_LICENSE_KEY` env) |
+| `--server <selector>` | | `0` | Select API server by index, partial URL, or exact URL |
+| `--no-doc-warnings` | | | Suppress doc quality warnings on startup |
+| `--dynamic-discovery` | | auto (100+) | Enable dynamic tool discovery for large APIs |
 
 ### Auth Options
 
@@ -244,6 +247,12 @@ npx mcp-openapi --spec ./api.json -H 'X-Custom: value' -H 'X-Another: value2'
 
 # Use a JSON config file
 npx mcp-openapi --config ./mcp-config.json
+
+# Select staging server
+npx mcp-openapi --spec ./api.json --server staging
+
+# Large API with dynamic discovery
+npx mcp-openapi --spec https://api.stripe.com/openapi.json --dynamic-discovery
 ```
 
 ### Config File Format
@@ -281,6 +290,69 @@ CLI arguments take precedence over config file values.
 Specs can be loaded from:
 - Remote URLs (`https://...`)
 - Local file paths (`./api.yaml`, `/absolute/path/spec.json`)
+
+---
+
+## v0.3.0 Features
+
+### Doc Quality Warnings
+
+On startup, `mcp-openapi` checks each tool's documentation quality. If endpoints have sparse descriptions (under 50 characters), you'll see a warning:
+
+```
+[mcp-openapi] WARN: Doc quality: 11 of 47 tools have sparse documentation (<50 chars)
+[mcp-openapi] WARN:   Affected: getUser, createOrder, deleteItem, updateCart, listTags, ...
+[mcp-openapi] WARN:   LLM accuracy may be reduced for these endpoints.
+```
+
+This helps you identify which API endpoints might cause poor LLM tool-calling accuracy. Suppress with `--no-doc-warnings`.
+
+### Server Filtering
+
+OpenAPI specs can define multiple servers (production, staging, dev). Select which one to use:
+
+```bash
+# Use first server (default behavior)
+mcp-openapi --spec api.json --server 0
+
+# Match by URL keyword
+mcp-openapi --spec api.json --server prod
+
+# Exact URL
+mcp-openapi --spec api.json --server https://api.example.com/v2
+```
+
+If the selector doesn't match, you'll see all available servers listed.
+
+### Dynamic Tool Discovery
+
+For large APIs with 100+ endpoints, registering all tools at once can overwhelm the LLM's context. Dynamic discovery solves this by registering 3 meta-tools instead:
+
+| Meta-tool | Description |
+|-----------|-------------|
+| `search_operations(query)` | Search tools by keyword in names, descriptions, and tags |
+| `list_by_tag(tag?)` | Browse tools by OpenAPI tag, or list all tags |
+| `get_tool_details(tool_name)` | Get full parameter schema for a specific tool |
+
+The LLM explores the API through these meta-tools, then calls specific endpoints by name.
+
+```bash
+# Explicit opt-in
+mcp-openapi --spec large-api.json --dynamic-discovery
+
+# Auto-enabled when spec has 100+ endpoints
+mcp-openapi --spec https://api.github.com/openapi.json
+```
+
+Or via config file:
+
+```json
+{
+  "spec": "https://api.stripe.com/openapi.json",
+  "dynamicDiscovery": true,
+  "auth": { "type": "bearer", "token": "$STRIPE_KEY" }
+}
+```
 
 ---
 

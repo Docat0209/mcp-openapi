@@ -30,6 +30,10 @@ export function parseCliArgs(argv: string[]): McpOpenApiConfig {
 			header: { type: "string", multiple: true, short: "H" },
 			// Pro options
 			"license-key": { type: "string" },
+			// v0.3.0 options
+			"no-doc-warnings": { type: "boolean" },
+			server: { type: "string" },
+			"dynamic-discovery": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 			version: { type: "boolean", short: "v" },
 		},
@@ -42,7 +46,7 @@ export function parseCliArgs(argv: string[]): McpOpenApiConfig {
 	}
 
 	if (values.version) {
-		console.error("mcp-openapi v0.2.0");
+		console.error("mcp-openapi v0.3.0");
 		process.exit(0);
 	}
 
@@ -81,6 +85,11 @@ export function parseCliArgs(argv: string[]): McpOpenApiConfig {
 			}
 		}
 	}
+
+	// v0.3.0 flags
+	if (values["no-doc-warnings"]) config.noDocWarnings = true;
+	if (values.server != null) config.server = values.server as string;
+	if (values["dynamic-discovery"]) config.dynamicDiscovery = true;
 
 	return config;
 }
@@ -166,12 +175,19 @@ AUTH OPTIONS:
       --auth-token-url <url>
       --auth-scopes <scopes>
 
+SERVER OPTIONS:
+      --server <selector>     Select API server: index (0,1,...), partial URL, or exact URL
+      --no-doc-warnings       Suppress doc quality warnings on startup
+      --dynamic-discovery     Enable dynamic tool discovery for large APIs (auto for 100+ endpoints)
+
 PRO OPTIONS:
       --license-key <key>     Pro license key (or set MCP_OPENAPI_LICENSE_KEY env)
 
 EXAMPLES:
   npx mcp-openapi --spec https://petstore3.swagger.io/api/v3/openapi.json
-  npx mcp-openapi --spec ./api.yaml --auth-type bearer --auth-token '$API_KEY'
+  npx mcp-openapi --spec ./api.yaml --auth-type bearer --auth-token '\$API_KEY'
   npx mcp-openapi --spec ./api.json --prefix github --include 'listRepos,getRepo'
+  npx mcp-openapi --spec ./api.json --server prod
+  npx mcp-openapi --spec ./large-api.json --dynamic-discovery
 `);
 }

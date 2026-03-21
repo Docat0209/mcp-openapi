@@ -24,10 +24,23 @@ export interface GenerateOptions {
 	exclude?: string[];
 }
 
+export interface GenerateResult {
+	tools: GeneratedTool[];
+	/** Map from tool name to its OpenAPI tags */
+	tagMap: Map<string, string[]>;
+}
+
 export function generateTools(
 	spec: NormalizedSpec,
 	options: GenerateOptions = {},
 ): GeneratedTool[] {
+	return generateToolsWithTags(spec, options).tools;
+}
+
+export function generateToolsWithTags(
+	spec: NormalizedSpec,
+	options: GenerateOptions = {},
+): GenerateResult {
 	const baseUrl =
 		options.baseUrl ?? spec.servers[0]?.url ?? "http://localhost";
 
@@ -61,14 +74,17 @@ export function generateTools(
 	// Resolve collisions
 	const names = resolveCollisions(rawNames);
 
-	// Build tools
+	// Build tools and tag map
+	const tagMap = new Map<string, string[]>();
 	const tools: GeneratedTool[] = endpoints.map((endpoint, i) => {
 		const { inputSchema, parameterMap } = buildParams(endpoint);
-
 		const description = buildDescription(endpoint);
+		const name = names[i];
+
+		tagMap.set(name, endpoint.tags ?? []);
 
 		return {
-			name: names[i],
+			name,
 			description,
 			inputSchema,
 			endpointRef: {
@@ -83,7 +99,7 @@ export function generateTools(
 	});
 
 	logger.info(`Generated ${tools.length} MCP tools from ${spec.info.title}`);
-	return tools;
+	return { tools, tagMap };
 }
 
 function buildDescription(endpoint: NormalizedEndpoint): string {
@@ -109,7 +125,7 @@ function buildDescription(endpoint: NormalizedEndpoint): string {
 function matchPattern(value: string, pattern: string): boolean {
 	if (pattern.includes("*")) {
 		const regex = new RegExp(
-			`^${pattern.replace(/\*/g, ".*").replace(/\//g, "\\/")}$`,
+			`^${pattern.replace(/\*/g, ".*").replace(/\//g, "\/")}$`,
 		);
 		return regex.test(value);
 	}
