@@ -25,6 +25,18 @@ describe("buildRequest", () => {
 		expect(req.url).toContain("include=email");
 	});
 
+	it("should preserve server path prefixes for absolute operation paths", () => {
+		const endpoint: EndpointRef = {
+			...baseEndpoint,
+			baseUrl: "https://api.example.com/v1",
+			path: "/users/{userId}",
+		};
+
+		const req = buildRequest({ userId: "42" }, endpoint);
+
+		expect(req.url).toBe("https://api.example.com/v1/users/42");
+	});
+
 	it("should skip undefined args", () => {
 		const req = buildRequest({ userId: "42" }, baseEndpoint);
 		expect(req.url).not.toContain("include");

@@ -74,9 +74,21 @@ function buildUrl(
 	path: string,
 	query: Record<string, string>,
 ): string {
-	const url = new URL(path, baseUrl);
+	const base = new URL(baseUrl);
+	base.pathname = joinUrlPaths(base.pathname, path);
 	for (const [key, value] of Object.entries(query)) {
-		url.searchParams.set(key, value);
+		base.searchParams.set(key, value);
 	}
-	return url.toString();
+	return base.toString();
+}
+
+function joinUrlPaths(basePath: string, operationPath: string): string {
+	const trimmedBase = basePath.replace(/\/+$/, "");
+	const trimmedOperation = operationPath.replace(/^\/+/, "");
+
+	if (!trimmedOperation) {
+		return trimmedBase || "/";
+	}
+
+	return `${trimmedBase}/${trimmedOperation}`;
 }
