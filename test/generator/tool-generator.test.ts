@@ -94,4 +94,21 @@ describe("generateTools", () => {
 			expect(tool.endpointRef.baseUrl).toBe("http://localhost:8080");
 		}
 	});
+
+	it("should generate a tool from Xquik OpenAPI 3.1 fixture", async () => {
+		const spec = await parseSpec(resolve(FIXTURE_DIR, "xquik-openapi31.json"));
+		const tools = generateTools(spec);
+
+		expect(tools).toHaveLength(1);
+		const searchTool = tools[0];
+		expect(searchTool.name).toBe("search_tweets");
+		expect(searchTool.description).toBe(
+			"Search X posts [GET /api/v1/x/tweets/search]",
+		);
+		expect(searchTool.inputSchema.properties).toHaveProperty("q");
+		expect(searchTool.inputSchema.properties).toHaveProperty("limit");
+		expect(searchTool.inputSchema.required).toContain("q");
+		expect(searchTool.endpointRef.baseUrl).toBe("https://xquik.com");
+		expect(searchTool.endpointRef.method).toBe("GET");
+	});
 });
