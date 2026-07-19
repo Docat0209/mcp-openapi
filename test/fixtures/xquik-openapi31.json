@@ -1,0 +1,78 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "Xquik API",
+		"version": "1.0",
+		"description": "OpenAPI 3.1 fixture for a header-authenticated X search endpoint. Xquik is an independent third-party service. Not affiliated with X Corp. \"Twitter\" and \"X\" are trademarks of X Corp."
+	},
+	"externalDocs": { "url": "https://docs.xquik.com/api-reference" },
+	"servers": [{ "url": "https://xquik.com" }],
+	"security": [{ "apiKey": [] }],
+	"paths": {
+		"/api/v1/x/tweets/search": {
+			"get": {
+				"tags": ["x"],
+				"summary": "Search X posts",
+				"operationId": "searchTweets",
+				"security": [{ "apiKey": [] }],
+				"parameters": [
+					{
+						"name": "q",
+						"in": "query",
+						"required": true,
+						"schema": { "type": "string" },
+						"description": "Search query."
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"schema": { "type": "integer", "minimum": 1, "maximum": 100 },
+						"description": "Maximum number of posts to return."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Search results.",
+						"content": {
+							"application/json": {
+								"schema": { "$ref": "#/components/schemas/SearchTweetsResponse" }
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"securitySchemes": {
+			"apiKey": {
+				"type": "apiKey",
+				"in": "header",
+				"name": "x-api-key"
+			}
+		},
+		"schemas": {
+			"SearchTweetsResponse": {
+				"type": "object",
+				"required": ["data"],
+				"properties": {
+					"data": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/Tweet" }
+					},
+					"nextCursor": { "type": ["string", "null"] }
+				}
+			},
+			"Tweet": {
+				"type": "object",
+				"required": ["id", "text"],
+				"properties": {
+					"id": { "type": "string" },
+					"text": { "type": "string" },
+					"authorId": { "type": "string" }
+				}
+			}
+		}
+	}
+}

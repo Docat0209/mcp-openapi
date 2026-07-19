@@ -68,4 +68,25 @@ describe("parseSpec", () => {
 			bearerFormat: undefined,
 		});
 	});
+
+	it("should parse Xquik OpenAPI 3.1 header auth fixture", async () => {
+		const spec = await parseSpec(resolve(FIXTURE_DIR, "xquik-openapi31.json"));
+
+		expect(spec.info.title).toBe("Xquik API");
+		expect(spec.info.version).toBe("1.0");
+		expect(spec.servers[0].url).toBe("https://xquik.com");
+		expect(spec.securitySchemes.apiKey).toEqual({
+			type: "apiKey",
+			name: "x-api-key",
+			in: "header",
+		});
+
+		expect(spec.endpoints).toHaveLength(1);
+		const searchTweets = spec.endpoints[0];
+		expect(searchTweets.operationId).toBe("searchTweets");
+		expect(searchTweets.method).toBe("get");
+		expect(searchTweets.path).toBe("/api/v1/x/tweets/search");
+		expect(searchTweets.parameters.map((p) => p.name)).toEqual(["q", "limit"]);
+		expect(searchTweets.responses["200"].contentType).toBe("application/json");
+	});
 });
